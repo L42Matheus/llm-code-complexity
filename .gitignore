@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.Python
+.venv/
+venv/
+env/
+
+results.csv
+test_offline_results.csv
+*.log
+
+.DS_Store
