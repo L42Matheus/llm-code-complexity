@@ -12,6 +12,7 @@ env/
 
 results.csv
 test_offline_results.csv
+online_results*.csv
 data/
 *.log
 
