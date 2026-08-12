@@ -22,7 +22,6 @@ def _call_anthropic(cfg, prompt):
     resp = client.messages.create(
         model=cfg["model"],
         max_tokens=MAX_TOKENS,
-        temperature=TEMPERATURE,
         messages=[{"role": "user", "content": prompt}],
     )
     text = "".join(block.text for block in resp.content if block.type == "text")

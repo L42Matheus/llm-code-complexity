@@ -4,9 +4,15 @@ __pycache__/
 .venv/
 venv/
 env/
+.env
+.env.*
+!.env.example
+*.key
+*.pem
 
 results.csv
 test_offline_results.csv
+data/
 *.log
 
 .DS_Store
