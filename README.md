@@ -88,6 +88,30 @@ necessário) seja contada como "redução de complexidade" legítima. Com
 múltiplas repetições (`--runs > 1`), a comparação é sempre pareada por
 tarefa (média entre runs), não por execução individual.
 
+## 6. Interface web para Railway
+
+A interface web fica separada em `railway_web/` e usa o mesmo pipeline por
+baixo. O uso via terminal continua igual.
+
+Para rodar localmente:
+
+```bash
+export ANTHROPIC_API_KEY="sua-chave"
+export EXPERIMENT_WEB_TOKEN="uma-senha-para-a-interface"
+python3 -m uvicorn railway_web.app:app --host 0.0.0.0 --port 8000
+```
+
+Para publicar no Railway, conecte este repositório pelo GitHub, configure
+`ANTHROPIC_API_KEY` em `Variables` e defina também `EXPERIMENT_WEB_TOKEN`
+para proteger a execução de jobs. O `railway.json` da raiz usa o comando:
+
+```bash
+uvicorn railway_web.app:app --host 0.0.0.0 --port $PORT
+```
+
+O app web cria jobs assíncronos, mostra progresso e permite baixar o CSV
+gerado ao final.
+
 ## Estimando custo antes de rodar
 
 `run_pipeline.py` já imprime o custo estimado (`cost_usd`) linha a linha e o

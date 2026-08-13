@@ -14,6 +14,7 @@ results.csv
 test_offline_results.csv
 online_results*.csv
 data/
+railway_web/web_results/
 *.log
 
 .DS_Store

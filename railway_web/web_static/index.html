@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LLM Code Complexity</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7f9;
+        --ink: #17202a;
+        --muted: #667085;
+        --line: #d9dee7;
+        --panel: #ffffff;
+        --accent: #0f766e;
+        --accent-2: #b42318;
+        --shadow: 0 16px 45px rgba(23, 32, 42, 0.08);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+      }
+      header { border-bottom: 1px solid var(--line); background: #fff; }
+      .wrap { width: min(1180px, calc(100vw - 32px)); margin: 0 auto; }
+      .topbar {
+        min-height: 72px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+      h1 { font-size: 24px; line-height: 1.2; margin: 0; font-weight: 760; }
+      .subtitle { margin: 5px 0 0; color: var(--muted); font-size: 14px; }
+      main { padding: 26px 0 42px; }
+      .grid {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 18px;
+        align-items: start;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+      }
+      .panel h2 {
+        font-size: 15px;
+        margin: 0;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+      form, .panel-body { padding: 18px; }
+      label {
+        display: block;
+        color: #344054;
+        font-size: 13px;
+        font-weight: 650;
+        margin-bottom: 7px;
+      }
+      .field { margin-bottom: 15px; }
+      input, select {
+        width: 100%;
+        min-height: 40px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        color: var(--ink);
+        background: #fff;
+        padding: 8px 10px;
+        font-size: 14px;
+      }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      button, .button {
+        min-height: 42px;
+        border: 0;
+        border-radius: 6px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 750;
+        cursor: pointer;
+        padding: 10px 14px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      button:disabled { opacity: 0.55; cursor: not-allowed; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 13px;
+        color: #344054;
+      }
+      .dot { width: 9px; height: 9px; border-radius: 50%; background: #94a3b8; }
+      .dot.running { background: #d97706; }
+      .dot.complete { background: var(--accent); }
+      .dot.failed { background: var(--accent-2); }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .stat {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 13px;
+        background: #fff;
+      }
+      .stat .label { font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+      .stat .value { font-size: 22px; font-weight: 800; }
+      progress { width: 100%; height: 12px; accent-color: var(--accent); }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td {
+        border-bottom: 1px solid var(--line);
+        padding: 10px 8px;
+        text-align: left;
+        vertical-align: middle;
+      }
+      th { color: #475467; font-size: 12px; background: #f8fafc; }
+      .events { max-height: 320px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+      .empty { color: var(--muted); padding: 20px; text-align: center; }
+      .ok { color: var(--accent); font-weight: 750; }
+      .bad { color: var(--accent-2); font-weight: 750; }
+      .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      @media (max-width: 900px) {
+        .grid { grid-template-columns: 1fr; }
+        .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      @media (max-width: 560px) {
+        .row, .stats { grid-template-columns: 1fr; }
+        .topbar { align-items: flex-start; flex-direction: column; padding: 18px 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap topbar">
+        <div>
+          <h1>LLM Code Complexity</h1>
+          <p class="subtitle">Experimento online: baseline vs. prompt minimalista.</p>
+        </div>
+        <div class="pill"><span id="status-dot" class="dot"></span><span id="status-label">Pronto</span></div>
+      </div>
+    </header>
+    <main class="wrap grid">
+      <section class="panel">
+        <h2>Configuração</h2>
+        <form id="job-form">
+          <div class="field">
+            <label for="model">Modelo</label>
+            <select id="model" name="model"></select>
+          </div>
+          <div class="field">
+            <label for="dataset">Dataset</label>
+            <select id="dataset" name="dataset">
+              <option value="humaneval_plus">HumanEval+</option>
+              <option value="humaneval">HumanEval</option>
+            </select>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="n">Tarefas</label>
+              <input id="n" name="n" type="number" min="1" max="164" value="10" />
+            </div>
+            <div class="field">
+              <label for="runs">Runs</label>
+              <input id="runs" name="runs" type="number" min="1" max="10" value="1" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="seed">Seed</label>
+            <input id="seed" name="seed" type="number" value="42" />
+          </div>
+          <div class="field" id="token-field" style="display: none;">
+            <label for="token">Token de acesso</label>
+            <input id="token" name="token" type="password" autocomplete="current-password" />
+          </div>
+          <button id="start" type="submit">Iniciar experimento</button>
+        </form>
+      </section>
+      <section class="panel">
+        <h2>Resultados</h2>
+        <div class="panel-body">
+          <div class="stats">
+            <div class="stat"><div class="label">Progresso</div><div class="value" id="progress-text">0/0</div></div>
+            <div class="stat"><div class="label">Corretude</div><div class="value" id="pass-text">-</div></div>
+            <div class="stat"><div class="label">Custo</div><div class="value" id="cost-text">$0.0000</div></div>
+            <div class="stat"><div class="label">Latência</div><div class="value" id="latency-text">-</div></div>
+          </div>
+          <progress id="progress" value="0" max="1"></progress>
+          <div id="summary" style="margin-top: 18px;"></div>
+          <div class="actions" style="margin-top: 16px;">
+            <a id="download" class="button" href="#" style="display: none;">Baixar CSV</a>
+            <span id="error" class="bad"></span>
+          </div>
+        </div>
+      </section>
+      <section class="panel" style="grid-column: 1 / -1;">
+        <h2>Execuções</h2>
+        <div class="panel-body">
+          <div class="events">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tarefa</th>
+                  <th>Condição</th>
+                  <th>Run</th>
+                  <th>Passou</th>
+                  <th>CC</th>
+                  <th>LOC</th>
+                  <th>Tokens</th>
+                  <th>Custo</th>
+                </tr>
+              </thead>
+              <tbody id="events-body">
+                <tr><td colspan="8" class="empty">Nenhum experimento iniciado.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script>
+      let pollTimer = null;
+      let currentJobId = null;
+      const $ = (id) => document.getElementById(id);
+      const fmt = (value, digits = 2) => value === null || value === undefined ? "-" : Number(value).toFixed(digits);
+
+      function setStatus(status) {
+        const dot = $("status-dot");
+        dot.className = `dot ${status}`;
+        const labels = { queued: "Na fila", running: "Rodando", complete: "Concluído", failed: "Falhou" };
+        $("status-label").textContent = labels[status] || "Pronto";
+        $("start").disabled = status === "queued" || status === "running";
+      }
+
+      async function loadConfig() {
+        const res = await fetch("/api/config");
+        const cfg = await res.json();
+        const select = $("model");
+        select.innerHTML = "";
+        cfg.models.forEach((model) => {
+          const option = document.createElement("option");
+          option.value = model.key;
+          option.disabled = !model.configured;
+          option.textContent = `${model.key} · ${model.model}${model.configured ? "" : " · sem chave"}`;
+          select.appendChild(option);
+        });
+        const firstConfigured = cfg.models.find((m) => m.configured);
+        if (firstConfigured) select.value = firstConfigured.key;
+        $("token-field").style.display = cfg.auth_required ? "block" : "none";
+      }
+
+      function renderSummary(summary) {
+        if (!summary) {
+          $("summary").innerHTML = "";
+          return;
+        }
+        const rows = summary.comparisons.map((r) => `
+          <tr>
+            <td>${r.metric}</td>
+            <td>${fmt(r.baseline_mean)}</td>
+            <td>${fmt(r.minimal_mean)}</td>
+            <td>${fmt(r.p_value, 4)}</td>
+            <td>${fmt(r.A12, 3)}</td>
+            <td>${r.n}</td>
+          </tr>
+        `).join("");
+        $("summary").innerHTML = `
+          <table>
+            <thead><tr><th>Métrica</th><th>Baseline</th><th>Minimal</th><th>p</th><th>A12</th><th>n</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+        const pass = summary.pass_rate.claude || Object.values(summary.pass_rate)[0] || {};
+        const base = pass.baseline !== undefined ? `${Math.round(pass.baseline * 100)}%` : "-";
+        const minimal = pass.minimal !== undefined ? `${Math.round(pass.minimal * 100)}%` : "-";
+        $("pass-text").textContent = `${base}/${minimal}`;
+        $("cost-text").textContent = `$${Number(summary.cost_usd).toFixed(4)}`;
+        $("latency-text").textContent = summary.avg_latency_s ? `${summary.avg_latency_s}s` : "-";
+      }
+
+      function renderEvents(events) {
+        const body = $("events-body");
+        if (!events.length) {
+          body.innerHTML = `<tr><td colspan="8" class="empty">Aguardando primeiras execuções.</td></tr>`;
+          return;
+        }
+        body.innerHTML = events.slice().reverse().map((event) => `
+          <tr>
+            <td>${event.task_id || "-"}</td>
+            <td>${event.condition || "-"}</td>
+            <td>${event.run_id || "-"}</td>
+            <td>${event.status === "error" ? `<span class="bad">erro</span>` : event.passed ? `<span class="ok">sim</span>` : `<span class="bad">não</span>`}</td>
+            <td>${event.cc ?? "-"}</td>
+            <td>${event.loc ?? "-"}</td>
+            <td>${event.tokens_out ?? "-"}</td>
+            <td>${event.cost_usd !== undefined ? `$${Number(event.cost_usd).toFixed(5)}` : "-"}</td>
+          </tr>
+        `).join("");
+      }
+
+      async function pollJob() {
+        if (!currentJobId) return;
+        const res = await fetch(`/api/jobs/${currentJobId}`);
+        const job = await res.json();
+        setStatus(job.status);
+        $("progress").max = job.total_calls || 1;
+        $("progress").value = job.completed_calls || 0;
+        $("progress-text").textContent = `${job.completed_calls || 0}/${job.total_calls || 0}`;
+        $("cost-text").textContent = `$${Number(job.running_cost_usd || 0).toFixed(4)}`;
+        $("error").textContent = job.error || "";
+        renderEvents(job.events || []);
+        renderSummary(job.summary);
+        $("download").style.display = job.has_csv ? "inline-flex" : "none";
+        $("download").href = `/api/jobs/${currentJobId}/csv`;
+        if (job.status === "complete" || job.status === "failed") {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      }
+
+      $("job-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        $("error").textContent = "";
+        $("summary").innerHTML = "";
+        $("download").style.display = "none";
+        setStatus("queued");
+        const payload = {
+          model: $("model").value,
+          dataset: $("dataset").value,
+          n: Number($("n").value),
+          runs: Number($("runs").value),
+          seed: Number($("seed").value)
+        };
+        const headers = { "Content-Type": "application/json" };
+        if ($("token").value) headers["X-Experiment-Token"] = $("token").value;
+        const res = await fetch("/api/jobs", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          $("error").textContent = err.detail || "Falha ao iniciar.";
+          setStatus("failed");
+          return;
+        }
+        const data = await res.json();
+        currentJobId = data.job_id;
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(pollJob, 1800);
+        pollJob();
+      });
+
+      loadConfig().catch(() => {
+        $("error").textContent = "Não foi possível carregar a configuração.";
+      });
+    </script>
+  </body>
+</html>
