@@ -193,7 +193,7 @@
           <div class="stats">
             <div class="stat"><div class="label">Progresso</div><div class="value" id="progress-text">0/0</div></div>
             <div class="stat"><div class="label">Corretude</div><div class="value" id="pass-text">-</div></div>
-            <div class="stat"><div class="label">Custo</div><div class="value" id="cost-text">$0.0000</div></div>
+            <div class="stat"><div class="label">Custo estimado</div><div class="value" id="cost-text">$0.0000</div></div>
             <div class="stat"><div class="label">Latência</div><div class="value" id="latency-text">-</div></div>
           </div>
           <progress id="progress" value="0" max="1"></progress>
@@ -217,8 +217,8 @@
                   <th>Passou</th>
                   <th>CC</th>
                   <th>LOC</th>
-                  <th>Tokens</th>
-                  <th>Custo</th>
+                  <th>Tokens de saída</th>
+                  <th>Custo estimado</th>
                 </tr>
               </thead>
               <tbody id="events-body">
@@ -234,6 +234,13 @@
       let currentJobId = null;
       const $ = (id) => document.getElementById(id);
       const fmt = (value, digits = 2) => value === null || value === undefined ? "-" : Number(value).toFixed(digits);
+      const metricLabels = {
+        cc: "Complexidade ciclomática (CC)",
+        mi: "Índice de Manutenibilidade (MI)",
+        loc: "Linhas de código (LOC)",
+        cognitive: "Complexidade cognitiva",
+        tokens_out: "Tokens de saída"
+      };
 
       function setStatus(status) {
         const dot = $("status-dot");
@@ -267,7 +274,7 @@
         }
         const rows = summary.comparisons.map((r) => `
           <tr>
-            <td>${r.metric}</td>
+            <td>${metricLabels[r.metric] || r.metric}</td>
             <td>${fmt(r.baseline_mean)}</td>
             <td>${fmt(r.minimal_mean)}</td>
             <td>${fmt(r.p_value, 4)}</td>
@@ -277,7 +284,7 @@
         `).join("");
         $("summary").innerHTML = `
           <table>
-            <thead><tr><th>Métrica</th><th>Baseline</th><th>Minimal</th><th>p</th><th>A12</th><th>n</th></tr></thead>
+            <thead><tr><th>Métrica</th><th>Prompt padrão</th><th>Prompt minimalista</th><th>p</th><th>A12</th><th>n</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         `;
