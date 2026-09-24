@@ -7,6 +7,7 @@ Uso:
 """
 import argparse
 import csv
+import json
 
 from config import MODELS, PRICING_PER_MTOK_USD
 from evaluate import run_test, run_test_plus
@@ -33,6 +34,9 @@ def main():
                           "humaneval usa a suíte original, mais rápida mas mais fraca.")
     ap.add_argument("--out", default="results.csv")
     args = ap.parse_args()
+
+    code_out_path = args.out.rsplit(".", 1)[0] + "_with_code.jsonl"
+    code_out = open(code_out_path, "w")
 
     if args.dataset == "humaneval_plus":
         problems = sample_problems_plus(n=args.n, seed=args.seed)
@@ -81,6 +85,14 @@ def main():
                           f"passed={str(row['passed']):5s} cc={row['cc']} cost=${cost:.5f} "
                           f"(acum. ${running_cost:.4f})")
 
+                    # Salva o código já a cada linha (não só no fim), para
+                    # não perder tudo de novo se a coleta cair no meio —
+                    # é exatamente o que faltou na coleta anterior.
+                    code_out.write(json.dumps({**row, "problem_statement": problem["prompt"], "code": gen["code"]}) + "\n")
+                    code_out.flush()
+
+    code_out.close()
+
     if not rows:
         print("Nenhum resultado gerado — confira as chaves de API.")
         return
@@ -90,6 +102,7 @@ def main():
         writer.writeheader()
         writer.writerows(rows)
     print(f"\n{len(rows)} linhas salvas em {args.out}. Custo estimado total: ${running_cost:.4f}")
+    print(f"Código completo (com problem_statement) salvo em {code_out_path}.")
     print("Rode `python3 summarize.py` para ver a comparação estatística.")
 
 
